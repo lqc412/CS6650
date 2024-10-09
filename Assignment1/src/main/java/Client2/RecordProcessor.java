@@ -12,8 +12,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 public class RecordProcessor {
 
-    private FileWriter csvWriter;  // Writer for outputting data to a CSV file
-    protected static CopyOnWriteArrayList<Record> records = new CopyOnWriteArrayList<>();  // Thread-safe list for storing records
+    private FileWriter csvWriter;
+    protected static CopyOnWriteArrayList<Record> records = new CopyOnWriteArrayList<>();
 
     /**
      * Constructs a RecordProcessor instance that writes output to the specified CSV file.
@@ -45,32 +45,25 @@ public class RecordProcessor {
      * @throws IOException if an I/O error occurs when writing records to the CSV file
      */
     public void calculateOutput() throws IOException {
-        // Sort the records by latency
         Collections.sort(records);
 
         double min = Double.MAX_VALUE;
         double max = 0;
         double sum = 0;
 
-        // Calculate median and 99th percentile latencies
         double median = records.get((int) (0.5 * records.size())).getLatency();
         double p99 = records.get((int) (0.99 * records.size())).getLatency();
 
-        // Iterate through the records to calculate sum, min, and max latencies
         for (Record record : records) {
             sum += record.getLatency();
             max = Math.max(max, record.getLatency());
             min = Math.min(min, record.getLatency());
-            addRecordToCSV(record);  // Add each record to the CSV file
+            addRecordToCSV(record);
         }
 
-        // Calculate the mean latency
         double mean = sum / records.size();
-
-        // Calculate throughput (requests per second)
         double throughput = 1000 * records.size() / sum;
 
-        // Print out statistics
         System.out.println(records.size());
         System.out.println(sum);
         System.out.println(

@@ -7,8 +7,8 @@ package Client2;
  */
 public class Counter {
 
-    private int successfulPosts;  // The count of successful POST requests
-    private int failedPosts;      // The count of failed POST requests
+    private int successfulPosts;
+    private int failedPosts;
 
     /**
      * Constructs a Counter instance and initializes the successful and failed

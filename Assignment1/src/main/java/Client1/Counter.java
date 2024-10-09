@@ -2,12 +2,12 @@ package Client1;
 
 /**
  * Counter class is used to keep track of the number of successful and failed POST requests
- * made by the SkierThread instances. The methods are synchronized to ensure thread safety 
+ * made by the SkThread instances. The methods are synchronized to ensure thread safety
  * when multiple threads are incrementing the counts concurrently.
  */
 public class Counter {
-    private int successfulPosts;  // Stores the count of successful POST requests
-    private int failedPosts;      // Stores the count of failed POST requests
+    private int successfulPosts;
+    private int failedPosts;
 
     /**
      * Constructs a Counter with initial counts of 0 for both successful and failed posts.
