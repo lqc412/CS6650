@@ -54,7 +54,6 @@ public class SingleThreadTest {
         System.out.println("Average Throughput: " + averageThroughput + " requests/sec");
 
         double phase1Throughput = averageThroughput * 32;
-        double phase2Throughput = averageThroughput * 112;
 
         System.out.println("\nPredicted Throughput:");
         System.out.println("Phase 1 (32 threads): " + phase1Throughput + " requests/sec");
