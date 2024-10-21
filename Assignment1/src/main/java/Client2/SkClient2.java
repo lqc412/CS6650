@@ -1,107 +1,87 @@
 package Client2;
 
+import io.swagger.client.ApiClient;
+import io.swagger.client.model.LiftRide;
+import com.squareup.okhttp.OkHttpClient;
+import com.squareup.okhttp.ConnectionPool;
+
+
 import java.io.IOException;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
- * The SkClient2 class simulates multiple phases of skier lift ride requests
- * sent to a server using multi-threading. The class handles synchronization
- * between different phases using CountDownLatch, ensuring that each phase starts
- * and finishes in a sequential manner.
+ * The SkClient2 class simulates multiple threads that generate and send
+ * POST requests to simulate skier lift rides. The goal is to send 200,000
+ * requests as fast as possible.
  */
 public class SkClient2 {
 
-    protected static CountDownLatch latchToPhase2 = new CountDownLatch(1);
-    protected static CountDownLatch latchToPhase3 = new CountDownLatch(1);
     protected static Counter counter = new Counter();
 
-    /**
-     * The main method orchestrates the multi-phase request simulation. It starts
-     * by executing Phase I, followed by Phase II, Phase III, and Phase IV. Each phase
-     * launches a specific number of threads that each send a defined number of POST requests.
-     *
-     * @param args Command-line arguments (not used)
-     * @throws InterruptedException If thread execution is interrupted while waiting
-     * @throws IOException          If an I/O error occurs during file writing
-     */
     public static void main(String[] args) throws InterruptedException, IOException {
 
-        // Phase I
-        long phase1Start = System.currentTimeMillis();
-        int numP1Threads = 32;
-        int numP1Requests = 1000;
-        CountDownLatch curLatch1 = new CountDownLatch(numP1Threads);
-        doPhase("Phase1", numP1Threads, numP1Requests, curLatch1);
-        long phase1End = System.currentTimeMillis();
+        // 记录程序开始时间
+        long startTime = System.currentTimeMillis();
 
-        int phase1Success = counter.getSuccessfulPosts();
-        int phase1Failed = counter.getFailedPosts();
-        long phaseDuration = phase1End - phase1Start; // Phase duration in milliseconds
-        int totalRequests = numP1Threads * numP1Requests;
-        double throughput = totalRequests / (phaseDuration / 1000.0);
-        System.out.println("\nPhase 1 Result:");
-        System.out.println("-".repeat(30));
-        System.out.println("Number of successful requests: " + phase1Success);
-        System.out.println("Number of failed requests: " + phase1Failed);
-        System.out.println("Phase 1 Duration: " + (phase1End - phase1Start) + " ms");
-        System.out.println("Phase 1 Throughput: " + throughput + " requests/sec");
+        // 创建一个线程安全的队列，用于存储 LiftRide 事件
+        BlockingQueue<LiftRide> rideQueue = new LinkedBlockingQueue<>();
 
-        // Begin Phase II
-        latchToPhase2.await();
-        int numP2Threads = 28;
-        int numP2Requests = 2000;
-        CountDownLatch curLatch2 = new CountDownLatch(numP2Threads);
-        doPhase("phase2", numP2Threads, numP2Requests, curLatch2);
+        // 启动 LiftRide 事件生成器，生成 200,000 个请求
+        System.out.println("Generating 200,000 lift ride events...");
+        LiftRideEventGenerator generator = new LiftRideEventGenerator(rideQueue, 200_000);
+        generator.start();
+        generator.join(); // 等待事件生成完成
 
-        curLatch2.await();
-        latchToPhase3.countDown();
+        // 创建共享的 ApiClient 实例
+        OkHttpClient httpClient = new OkHttpClient();
+        httpClient.setConnectionPool(new ConnectionPool(50, 5, TimeUnit.MINUTES)); // 设置连接池
+        ApiClient sharedClient = new ApiClient();
+        sharedClient.setHttpClient(httpClient);
+        sharedClient.setBasePath("http://35.162.51.174:8080/Server_war");
 
-        // Begin Phase III
-        latchToPhase3.await();
-        int numP3Threads = 28;
-        int numP3Requests = 2000;
-        CountDownLatch curLatch3 = new CountDownLatch(numP3Threads);
-        doPhase("phase3", numP3Threads, numP3Requests, curLatch3);
+        // 第一阶段：启动 32 个线程，每个线程发送 1000 个请求
+        int numPhase1Threads = 32;
+        int numPhase1Requests = 1000;
+        CountDownLatch phase1Latch = new CountDownLatch(numPhase1Threads);
+        System.out.println("\nStarting Phase 1 with " + numPhase1Threads + " threads...");
 
-        curLatch3.await();
-        latchToPhase3.countDown();
-        int numP4Threads = 28;
-        int numP4Requests = 2000;
-        CountDownLatch curLatch4 = new CountDownLatch(numP4Threads);
-        doPhase("phase4", numP4Threads, numP4Requests, curLatch4);
-
-        curLatch1.await();
-        curLatch2.await();
-        curLatch3.await();
-        curLatch4.await();
-        long end = System.currentTimeMillis();
-
-        // Process records
-        System.out.println("\nClient Part 2 Result:");
-        System.out.println("-".repeat(30));
-        new RecordProcessor("./output.csv").calculateOutput();
-
-        System.out.println("Phase duration: " + (end - phase1Start));
-    }
-
-    /**
-     * Executes a phase by creating and starting the specified number of threads.
-     * Each thread sends a given number of POST requests to simulate lift rides.
-     * The method waits for all threads in the phase to finish before proceeding.
-     *
-     * @param phaseName        The name of the phase (used for logging purposes)
-     * @param numberOfThreads  The number of threads to start in this phase
-     * @param numOfRequests    The number of requests each thread will send
-     * @param curLatch         The CountDownLatch to synchronize the phase's execution
-     * @throws InterruptedException If thread execution is interrupted while waiting
-     */
-    private static void doPhase(String phaseName, int numberOfThreads, int numOfRequests, CountDownLatch curLatch) throws InterruptedException {
-        System.out.println(phaseName + " is starting...");
-        for (int i = 0; i < numberOfThreads; i++) {
-            SkThread skThread = new SkThread(numOfRequests, curLatch);
+        for (int i = 0; i < numPhase1Threads; i++) {
+            SkThread skThread = new SkThread(rideQueue, phase1Latch, sharedClient, numPhase1Requests);
             skThread.start();
         }
-        curLatch.await(); // Wait for all threads to complete
-        System.out.println(phaseName + " completed " + (numOfRequests * numberOfThreads) + " requests");
+
+        phase1Latch.await(); // 等待所有线程完成
+
+        // 第二阶段：启动 64 个线程，发送剩余的请求
+        int remainingRequests = 200_000 - numPhase1Threads * numPhase1Requests; // 剩余请求数
+        int numPhase2Threads = 64;
+        int numPhase2Requests = remainingRequests / numPhase2Threads;
+        CountDownLatch phase2Latch = new CountDownLatch(numPhase2Threads);
+        System.out.println("\nStarting Phase 2 with " + numPhase2Threads + " threads...");
+
+        for (int i = 0; i < numPhase2Threads; i++) {
+            SkThread skThread = new SkThread(rideQueue, phase2Latch, sharedClient, numPhase2Requests);
+            skThread.start();
+        }
+
+        phase2Latch.await(); // 等待所有线程完成
+
+        // 记录程序结束时间
+        long endTime = System.currentTimeMillis();
+        long wallTime = endTime - startTime; // 总运行时间，单位为毫秒
+
+        // 计算结果并输出
+        System.out.println("\nAll requests have been completed.");
+        System.out.println("Number of successful requests: " + counter.getSuccessfulPosts());
+        System.out.println("Number of failed requests: " + counter.getFailedPosts());
+
+        // 调用 RecordProcessor 进行数据计算和输出，传入正确的开始和结束时间
+        String outputFilePath = "./output.csv"; // 你可以修改输出文件路径
+        RecordProcessor recordProcessor = new RecordProcessor(outputFilePath, startTime, endTime);
+        recordProcessor.calculateOutput();
+
     }
 }
