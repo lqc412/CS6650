@@ -40,7 +40,8 @@ public class SkClient2 {
         httpClient.setConnectionPool(new ConnectionPool(50, 5, TimeUnit.MINUTES)); // 设置连接池
         ApiClient sharedClient = new ApiClient();
         sharedClient.setHttpClient(httpClient);
-        sharedClient.setBasePath("http://35.162.51.174:8080/Server_war");
+//        sharedClient.setBasePath("http://35.162.51.174:8080/Server_war");
+        sharedClient.setBasePath("http://localhost:8080/Server_war_exploded");
 
         // 第一阶段：启动 32 个线程，每个线程发送 1000 个请求
         int numPhase1Threads = 32;
